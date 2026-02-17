@@ -47,13 +47,3 @@ output "ec2_app_dir" {
   description = "Application directory expected on EC2"
   value       = var.app_dir
 }
-
-output "app_env_secret_arn" {
-  description = "Secrets Manager ARN containing app runtime environment values"
-  value       = aws_secretsmanager_secret.app_env.arn
-}
-
-output "app_env_secret_name" {
-  description = "Secrets Manager secret name containing app runtime environment values"
-  value       = aws_secretsmanager_secret.app_env.name
-}

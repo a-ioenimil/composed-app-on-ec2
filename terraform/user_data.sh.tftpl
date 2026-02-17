@@ -20,7 +20,7 @@ retry() {
 }
 
 retry yum -y update
-retry yum -y install docker awscli jq
+retry yum -y install docker awscli
 systemctl enable --now docker
 usermod -aG docker ec2-user
 
@@ -28,31 +28,22 @@ mkdir -p /usr/local/lib/docker/cli-plugins
 retry curl -fSL https://github.com/docker/compose/releases/download/v2.24.6/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
 chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
-SECRET_JSON="$(retry aws secretsmanager get-secret-value --secret-id ${app_secret_id} --region ${aws_region} --query SecretString --output text)"
-POSTGRES_DB_VALUE="$(echo "$SECRET_JSON" | jq -r '.POSTGRES_DB')"
-POSTGRES_USER_VALUE="$(echo "$SECRET_JSON" | jq -r '.POSTGRES_USER')"
-POSTGRES_PASSWORD_VALUE="$(echo "$SECRET_JSON" | jq -r '.POSTGRES_PASSWORD')"
-
 mkdir -p ${app_dir}
 cat > ${app_dir}/.env <<'ENVEOF'
-POSTGRES_DB=__POSTGRES_DB__
-POSTGRES_USER=__POSTGRES_USER__
-POSTGRES_PASSWORD=__POSTGRES_PASSWORD__
-DB_USER=__POSTGRES_USER__
-DB_PASSWORD=__POSTGRES_PASSWORD__
+POSTGRES_DB=
+POSTGRES_USER=
+POSTGRES_PASSWORD=
+DB_USER=
+DB_PASSWORD=
 DB_HOST=db
 DB_PORT=5432
-DB_NAME=__POSTGRES_DB__
+DB_NAME=
 BACKEND_IMAGE=${backend_repository_url}
 BACKEND_TAG=latest
 FRONTEND_IMAGE=${frontend_repository_url}
 FRONTEND_TAG=latest
 AWS_REGION=${aws_region}
 ENVEOF
-
-sed -i "s|__POSTGRES_DB__|$POSTGRES_DB_VALUE|g" ${app_dir}/.env
-sed -i "s|__POSTGRES_USER__|$POSTGRES_USER_VALUE|g" ${app_dir}/.env
-sed -i "s|__POSTGRES_PASSWORD__|$POSTGRES_PASSWORD_VALUE|g" ${app_dir}/.env
 
 chown -R ec2-user:ec2-user ${app_dir}
 chmod 750 ${app_dir}

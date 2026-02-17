@@ -97,30 +97,6 @@ variable "app_dir" {
   default     = "/opt/composed-app-on-ec2"
 }
 
-variable "secrets_manager_secret_name" {
-  description = "Optional Secrets Manager secret name for runtime app env vars"
-  type        = string
-  default     = ""
-}
-
-variable "postgres_db" {
-  description = "PostgreSQL database name"
-  type        = string
-  default     = "todo_db"
-}
-
-variable "postgres_user" {
-  description = "PostgreSQL username"
-  type        = string
-  default     = "todo_user"
-}
-
-variable "postgres_password" {
-  description = "PostgreSQL password"
-  type        = string
-  sensitive   = true
-}
-
 variable "tags" {
   description = "Additional tags"
   type        = map(string)

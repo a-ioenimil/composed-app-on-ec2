@@ -14,8 +14,7 @@ data "aws_iam_openid_connect_provider" "github" {
 }
 
 locals {
-  name_prefix     = "${var.project_name}-${var.environment}"
-  app_secret_name = var.secrets_manager_secret_name != "" ? var.secrets_manager_secret_name : "${var.project_name}/${var.environment}/app-env"
+  name_prefix = "${var.project_name}-${var.environment}"
   common_tags = merge(
     {
       Project     = var.project_name
@@ -27,13 +26,9 @@ locals {
 
   instance_user_data = templatefile("${path.module}/user_data.sh.tftpl", {
     app_dir                 = var.app_dir
-    postgres_db             = var.postgres_db
-    postgres_user           = var.postgres_user
-    postgres_password       = var.postgres_password
     backend_repository_url  = aws_ecr_repository.backend.repository_url
     frontend_repository_url = aws_ecr_repository.frontend.repository_url
     aws_region              = var.aws_region
-    app_secret_id           = aws_secretsmanager_secret.app_env.arn
   })
 }
 
@@ -146,21 +141,6 @@ resource "aws_ecr_lifecycle_policy" "frontend" {
         }
       }
     ]
-  })
-}
-
-resource "aws_secretsmanager_secret" "app_env" {
-  name        = local.app_secret_name
-  description = "Runtime environment variables for ${local.name_prefix}"
-  tags        = local.common_tags
-}
-
-resource "aws_secretsmanager_secret_version" "app_env" {
-  secret_id = aws_secretsmanager_secret.app_env.id
-  secret_string = jsonencode({
-    POSTGRES_DB       = var.postgres_db
-    POSTGRES_USER     = var.postgres_user
-    POSTGRES_PASSWORD = var.postgres_password
   })
 }
 
@@ -288,17 +268,6 @@ data "aws_iam_policy_document" "ec2_ecr_pull" {
     ]
   }
 
-  statement {
-    sid    = "AllowReadAppRuntimeSecret"
-    effect = "Allow"
-    actions = [
-      "secretsmanager:GetSecretValue",
-      "secretsmanager:DescribeSecret"
-    ]
-    resources = [
-      aws_secretsmanager_secret.app_env.arn
-    ]
-  }
 }
 
 resource "aws_iam_policy" "ec2_ecr_pull" {
