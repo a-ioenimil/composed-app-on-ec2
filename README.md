@@ -1,3 +1,5 @@
+<video src="assets/videos/demo.mp4" autoplay muted loop playsinline controls width="100%"></video>
+
 ## Project Overview
 
 This repository contains a multi-container Todo application and infrastructure automation for deployment on AWS EC2.
