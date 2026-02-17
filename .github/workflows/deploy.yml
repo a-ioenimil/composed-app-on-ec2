@@ -14,6 +14,7 @@ env:
   BACKEND_REPO: ${{ vars.ECR_BACKEND_REPO }}
   FRONTEND_REPO: ${{ vars.ECR_FRONTEND_REPO }}
   APP_DIR: ${{ vars.EC2_APP_DIR }}
+  FRONTEND_VITE_API_URL: ${{ vars.VITE_API_URL }}
 
 jobs:
   deploy:
@@ -41,7 +42,10 @@ jobs:
       - name: Build and push frontend image
         run: |
           set -euo pipefail
-          docker build -t "$FRONTEND_REPO:${GITHUB_SHA}" ./frontend
+          docker build \
+            --build-arg VITE_API_URL="${FRONTEND_VITE_API_URL:-/api}" \
+            -t "$FRONTEND_REPO:${GITHUB_SHA}" \
+            ./frontend
           docker push "$FRONTEND_REPO:${GITHUB_SHA}"
 
       - name: Prepare app directory on EC2
