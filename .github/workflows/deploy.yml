@@ -44,6 +44,30 @@ jobs:
           docker build -t "$FRONTEND_REPO:${GITHUB_SHA}" ./frontend
           docker push "$FRONTEND_REPO:${GITHUB_SHA}"
 
+      - name: Prepare app directory on EC2
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          APP_DIR: ${{ env.APP_DIR }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          envs: APP_DIR
+          script_stop: true
+          script: |
+            set -euo pipefail
+            sudo mkdir -p "$APP_DIR"
+            sudo chown -R ec2-user:ec2-user "$APP_DIR"
+
+      - name: Copy docker-compose file to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          source: "docker-compose.yml"
+          target: ${{ env.APP_DIR }}
+
       - name: Deploy on EC2 via SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
@@ -65,6 +89,11 @@ jobs:
 
             cd "$APP_DIR"
 
+            if [ ! -f "$APP_DIR/docker-compose.yml" ]; then
+              echo "docker-compose.yml not found in $APP_DIR"
+              exit 14
+            fi
+
             touch .env
             grep -q '^BACKEND_IMAGE=' .env && sed -i "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=$BACKEND_REPO|" .env || echo "BACKEND_IMAGE=$BACKEND_REPO" >> .env
             grep -q '^BACKEND_TAG=' .env && sed -i "s|^BACKEND_TAG=.*|BACKEND_TAG=$GITHUB_SHA|" .env || echo "BACKEND_TAG=$GITHUB_SHA" >> .env
@@ -72,5 +101,5 @@ jobs:
             grep -q '^FRONTEND_TAG=' .env && sed -i "s|^FRONTEND_TAG=.*|FRONTEND_TAG=$GITHUB_SHA|" .env || echo "FRONTEND_TAG=$GITHUB_SHA" >> .env
             grep -q '^AWS_REGION=' .env && sed -i "s|^AWS_REGION=.*|AWS_REGION=$AWS_REGION|" .env || echo "AWS_REGION=$AWS_REGION" >> .env
 
-            docker compose pull backend frontend
-            docker compose up -d --remove-orphans
+            docker compose -f "$APP_DIR/docker-compose.yml" pull backend frontend
+            docker compose -f "$APP_DIR/docker-compose.yml" up -d --remove-orphans
