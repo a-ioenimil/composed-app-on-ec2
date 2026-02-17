@@ -75,6 +75,14 @@ variable "frontend_ecr_repo_name" {
 variable "github_repository" {
   description = "GitHub repository in owner/repo format"
   type        = string
+
+  validation {
+    condition = (
+      length(regexall("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", var.github_repository)) > 0 &&
+      !startswith(var.github_repository, "replace-with-")
+    )
+    error_message = "github_repository must be in owner/repo format (e.g. my-org/my-repo) and cannot use placeholder values."
+  }
 }
 
 variable "github_branch" {
