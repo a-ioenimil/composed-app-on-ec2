@@ -1,0 +1,76 @@
+name: Build and Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  BACKEND_REPO: ${{ vars.ECR_BACKEND_REPO }}
+  FRONTEND_REPO: ${{ vars.ECR_FRONTEND_REPO }}
+  APP_DIR: ${{ vars.EC2_APP_DIR }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        run: |
+          set -euo pipefail
+          docker build -t "$BACKEND_REPO:${GITHUB_SHA}" ./backend
+          docker push "$BACKEND_REPO:${GITHUB_SHA}"
+
+      - name: Build and push frontend image
+        run: |
+          set -euo pipefail
+          docker build -t "$FRONTEND_REPO:${GITHUB_SHA}" ./frontend
+          docker push "$FRONTEND_REPO:${GITHUB_SHA}"
+
+      - name: Deploy on EC2 via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          BACKEND_REPO: ${{ env.BACKEND_REPO }}
+          FRONTEND_REPO: ${{ env.FRONTEND_REPO }}
+          APP_DIR: ${{ env.APP_DIR }}
+          GITHUB_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          envs: AWS_REGION,BACKEND_REPO,FRONTEND_REPO,APP_DIR,GITHUB_SHA
+          script_stop: true
+          script: |
+            set -euo pipefail
+            REGISTRY="$(echo "$BACKEND_REPO" | cut -d/ -f1)"
+            aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REGISTRY"
+
+            cd "$APP_DIR"
+
+            touch .env
+            grep -q '^BACKEND_IMAGE=' .env && sed -i "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=$BACKEND_REPO|" .env || echo "BACKEND_IMAGE=$BACKEND_REPO" >> .env
+            grep -q '^BACKEND_TAG=' .env && sed -i "s|^BACKEND_TAG=.*|BACKEND_TAG=$GITHUB_SHA|" .env || echo "BACKEND_TAG=$GITHUB_SHA" >> .env
+            grep -q '^FRONTEND_IMAGE=' .env && sed -i "s|^FRONTEND_IMAGE=.*|FRONTEND_IMAGE=$FRONTEND_REPO|" .env || echo "FRONTEND_IMAGE=$FRONTEND_REPO" >> .env
+            grep -q '^FRONTEND_TAG=' .env && sed -i "s|^FRONTEND_TAG=.*|FRONTEND_TAG=$GITHUB_SHA|" .env || echo "FRONTEND_TAG=$GITHUB_SHA" >> .env
+            grep -q '^AWS_REGION=' .env && sed -i "s|^AWS_REGION=.*|AWS_REGION=$AWS_REGION|" .env || echo "AWS_REGION=$AWS_REGION" >> .env
+
+            docker compose pull backend frontend
+            docker compose up -d --remove-orphans

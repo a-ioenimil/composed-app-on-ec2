@@ -3,8 +3,18 @@ data "aws_ssm_parameter" "amzn2_ami" {
   name = "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
 }
 
+resource "aws_key_pair" "ec2" {
+  key_name   = var.ec2_key_name
+  public_key = trimspace(file(var.ec2_public_key_path))
+  tags       = local.common_tags
+}
+
+data "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
+}
+
 locals {
-  name_prefix = "${var.project_name}-${var.environment}"
+  name_prefix     = "${var.project_name}-${var.environment}"
   app_secret_name = var.secrets_manager_secret_name != "" ? var.secrets_manager_secret_name : "${var.project_name}/${var.environment}/app-env"
   common_tags = merge(
     {
@@ -154,20 +164,13 @@ resource "aws_secretsmanager_secret_version" "app_env" {
   })
 }
 
-resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
-  tags            = local.common_tags
-}
-
 data "aws_iam_policy_document" "github_actions_assume_role" {
   statement {
     effect = "Allow"
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github.arn]
+      identifiers = [data.aws_iam_openid_connect_provider.github.arn]
     }
 
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -322,7 +325,7 @@ module "compute" {
   subnet_id              = module.networking.public_subnets[0]
   vpc_security_group_ids = [aws_security_group.ec2_app.id]
 
-  key_name             = var.ec2_key_name
+  key_name             = aws_key_pair.ec2.key_name
   iam_instance_profile = aws_iam_instance_profile.ec2.name
   user_data            = local.instance_user_data
 }

@@ -45,7 +45,12 @@ variable "ec2_ami_id" {
 }
 
 variable "ec2_key_name" {
-  description = "Existing EC2 key pair name for SSH"
+  description = "EC2 key pair name to create and attach for SSH"
+  type        = string
+}
+
+variable "ec2_public_key_path" {
+  description = "Absolute path to local SSH public key (.pub) file"
   type        = string
 }
 

@@ -63,3 +63,10 @@ aws-amali-cli_accessKeys.csv
 
 # Python
 .venv
+
+#key files
+*.pem
+*.key
+
+terraform/ec2-key-pair
+terraform/ec2-key-pair.pub
