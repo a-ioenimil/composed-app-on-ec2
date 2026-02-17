@@ -14,4 +14,6 @@ module "ec2-instance" {
   iam_instance_profile        = var.iam_instance_profile
   user_data                   = var.user_data
   associate_public_ip_address = true
+
+  user_data_replace_on_change = true
 }
