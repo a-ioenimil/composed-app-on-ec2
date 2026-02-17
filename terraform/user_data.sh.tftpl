@@ -48,3 +48,7 @@ ENVEOF
 sed -i "s|__POSTGRES_DB__|$POSTGRES_DB_VALUE|g" ${app_dir}/.env
 sed -i "s|__POSTGRES_USER__|$POSTGRES_USER_VALUE|g" ${app_dir}/.env
 sed -i "s|__POSTGRES_PASSWORD__|$POSTGRES_PASSWORD_VALUE|g" ${app_dir}/.env
+
+chown -R ec2-user:ec2-user ${app_dir}
+chmod 750 ${app_dir}
+chmod 640 ${app_dir}/.env
